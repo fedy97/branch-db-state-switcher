@@ -197,35 +197,12 @@ elif [ "$ACTION_TYPE" == "restore" ]; then
             echo "Taking backup for safemode before restore operation is disabled (BDS_SAFE_RESTORE_MODE=false)"
         fi
 
-        # Drop all schemas and objects
-        echo "Dropping all schemas and objects in the database '$DB_NAME'..."
-        DROP_SCHEMAS_OUTPUT=$(docker exec -t $BDS_DOCKER_CONTAINER_ID bash -c "
-            psql -U $BDS_DB_USER -d $DB_NAME -t <<EOF
-    CREATE OR REPLACE FUNCTION drop_all()
-    RETURNS VOID AS
-    \$\$
-    DECLARE
-        rec RECORD;
-    BEGIN
-        -- Get all the schemas
-        FOR rec IN
-            SELECT nspname FROM pg_catalog.pg_namespace WHERE (nspname NOT LIKE 'pg_%') AND (nspname != 'information_schema')
-        LOOP
-            EXECUTE 'DROP SCHEMA ' || quote_ident(rec.nspname) || ' CASCADE';
-        END LOOP;
-        RETURN;
-    END;
-    \$\$ LANGUAGE plpgsql;
-
-    SELECT drop_all();
-    EOF" 2>&1)
-
-        if [[ $? -eq 0 ]]; then
-            echo "All schemas and objects dropped successfully for '$DB_NAME'."
-        else
-            echo "Failed to drop schemas and objects inside the database '$DB_NAME'. Error: $DROP_SCHEMAS_OUTPUT"
-            exit
-        fi
+        # Command to drop and recreate the database
+        echo "Dropping the database if it exists and creating a new one..."
+        # Drop the database
+        docker exec -t $BDS_DOCKER_CONTAINER_ID bash -c "psql -U $BDS_DB_USER -c 'DROP DATABASE IF EXISTS \"$DB_NAME\";'"
+        # Create the database
+        docker exec -t $BDS_DOCKER_CONTAINER_ID bash -c "psql -U $BDS_DB_USER -c 'CREATE DATABASE \"$DB_NAME\";'"
 
         # Perform the restore operation
         echo "Restoring database '$DB_NAME' from backup..."
