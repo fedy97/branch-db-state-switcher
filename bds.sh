@@ -129,13 +129,13 @@ if [ "$ACTION_TYPE" == "backup" ] || [ "$ACTION_TYPE" == "restore" ] || [ "$ACTI
         BACKUP_NAME=$2
     fi
 fi
-echo "Backup name: '$BACKUP_NAME'"
+echo "Backup name, if any: '$BACKUP_NAME'"
 
 # ---------------------------------------------------------------------- #
 # Ask the user to confirm the action
 # ---------------------------------------------------------------------- #
 echo ""
-echo "Do you want to run '$ACTION_TYPE' process for your DB on '$BACKUP_NAME' branch? (y/n)"
+echo "Do you want to run '$ACTION_TYPE' process for your DB on with name '$BACKUP_NAME'? (y/n)"
 read answer
 if [ "$answer" != "y" ]; then
     echo "Exiting..."
