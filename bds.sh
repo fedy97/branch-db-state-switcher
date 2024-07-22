@@ -173,7 +173,7 @@ elif [ "$ACTION_TYPE" == "restore" ]; then
     # Get the Node.js version from the backup directory
     export NVM_DIR="$HOME/.nvm"
     [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh" # This loads nvm
-    NODE_VERSION=$(cat $BDS_DOCKER_CONTAINER_ID:$BACKUP_DIR/$BACKUP_NAME-node_version_backup.txt)
+    NODE_VERSION=$(docker exec -it $BDS_DOCKER_CONTAINER_ID cat $BACKUP_DIR/$BACKUP_NAME-node_version_backup.txt)
     nvm use $NODE_VERSION
 
     for DB_NAME in "${DB_NAME_ARRAY[@]}"; do
