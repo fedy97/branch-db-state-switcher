@@ -126,9 +126,7 @@ The script accepts the following commands:
 
 - `-l` or `--list`: List all backups
 - `backup`: Create a backup
-- `backup-local`: Create a backup locally at the working directory
 - `restore`: Restore a backup
-- `restore-local`: Restore from local backup
 - `delete`: Delete a specific backup
 - `delete-all`: Delete all backups
 
