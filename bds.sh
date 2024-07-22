@@ -152,6 +152,11 @@ echo ""
 # ---------------------------------------------------------------------- #
 ###### Backup Inside Docker ######
 if [ "$ACTION_TYPE" == "backup" ]; then
+    # Get the current Node.js version
+    export NVM_DIR="$HOME/.nvm"
+    [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh" # This loads nvm
+    NODE_VERSION=$(nvm current)
+    echo $NODE_VERSION > node_version_backup.txt
     # Perform backup operation
     for DB_NAME in "${DB_NAME_ARRAY[@]}"; do
         if docker exec -t $BDS_DOCKER_CONTAINER_ID bash -c "pg_dump -Fc -U $BDS_DB_USER -d $DB_NAME > $BACKUP_DIR/$DB_NAME-$BACKUP_NAME"; then
@@ -160,8 +165,17 @@ if [ "$ACTION_TYPE" == "backup" ]; then
             echo "Failed to create backup file for '$DB_NAME' inside docker."
         fi
     done
+    docker cp node_version_backup.txt $BDS_DOCKER_CONTAINER_ID:$BACKUP_DIR/$BACKUP_NAME-node_version_backup.txt
+    echo "Node version '$NODE_VERSION' saved successfully."
+    rm node_version_backup.txt
 ###### Restore DB From Backup files Inside Docker ######
 elif [ "$ACTION_TYPE" == "restore" ]; then
+    # Get the Node.js version from the backup directory
+    export NVM_DIR="$HOME/.nvm"
+    [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh" # This loads nvm
+    NODE_VERSION=$(cat $BDS_DOCKER_CONTAINER_ID:$BACKUP_DIR/$BACKUP_NAME-node_version_backup.txt)
+    nvm use $NODE_VERSION
+
     for DB_NAME in "${DB_NAME_ARRAY[@]}"; do
         # Check if the backup file exists
         if ! docker exec $BDS_DOCKER_CONTAINER_ID [ -f $BACKUP_DIR/$DB_NAME-$BACKUP_NAME ]; then
@@ -183,29 +197,38 @@ elif [ "$ACTION_TYPE" == "restore" ]; then
             echo "Taking backup for safemode before restore operation is disabled (BDS_SAFE_RESTORE_MODE=false)"
         fi
 
-        # First, drop all schemas in the database
-        if docker exec -t $BDS_DOCKER_CONTAINER_ID bash -c "
+        # Drop all schemas and objects
+        echo "Dropping all schemas and objects in the database '$DB_NAME'..."
+        DROP_SCHEMAS_OUTPUT=$(docker exec -t $BDS_DOCKER_CONTAINER_ID bash -c "
             psql -U $BDS_DB_USER -d $DB_NAME -t <<EOF
 DO \$\$
 DECLARE
     r RECORD;
 BEGIN
-    FOR r IN (SELECT schemaname FROM pg_catalog.pg_tables WHERE schemaname NOT IN ('pg_catalog', 'information_schema')) LOOP
-        EXECUTE 'DROP SCHEMA IF EXISTS ' || quote_ident(r.schemaname) || ' CASCADE';
+    FOR r IN (SELECT nspname FROM pg_namespace WHERE nspname NOT IN ('pg_catalog', 'information_schema')) LOOP
+        EXECUTE 'DROP SCHEMA IF EXISTS ' || quote_ident(r.nspname) || ' CASCADE';
     END LOOP;
 END \$\$;
-EOF" > /dev/null 2>&1 && docker exec -t $BDS_DOCKER_CONTAINER_ID bash -c "psql -U $BDS_DB_USER -d $DB_NAME -c 'SET session_replication_role = replica;'" > /dev/null 2>&1; then
-            echo "Dropped all schemas inside the database '$DB_NAME' for clean restore."
-            if docker exec -t $BDS_DOCKER_CONTAINER_ID bash -c "pg_restore --clean --if-exists -U $BDS_DB_USER -d $DB_NAME $BACKUP_DIR/$DB_NAME-$BACKUP_NAME" > /dev/null 2>&1 && docker exec -t $BDS_DOCKER_CONTAINER_ID bash -c "psql -U $BDS_DB_USER -d $DB_NAME -c 'SET session_replication_role = DEFAULT;'" > /dev/null 2>&1; then
-                echo "Restore process for '$DB_NAME' completed successfully inside docker from '$BACKUP_DIR/$DB_NAME-$BACKUP_NAME'."
-            else
-                echo "Failed to restore backup file for '$DB_NAME' or re-enable FK checks."
-            fi
+EOF" 2>&1)
+
+        if [[ $? -eq 0 ]]; then
+            echo "All schemas and objects dropped successfully for '$DB_NAME'."
         else
-            echo "Failed to drop schemas inside the database '$DB_NAME' for a clean restore."
+            echo "Failed to drop schemas and objects inside the database '$DB_NAME'. Error: $DROP_SCHEMAS_OUTPUT"
+            exit
+        fi
+
+        # Perform the restore operation
+        echo "Restoring database '$DB_NAME' from backup..."
+        RESTORE_OUTPUT=$(docker exec -t $BDS_DOCKER_CONTAINER_ID bash -c "
+            pg_restore --clean --if-exists --no-owner --no-privileges -U $BDS_DB_USER -d $DB_NAME $BACKUP_DIR/$DB_NAME-$BACKUP_NAME" 2>&1)
+
+        if [[ $? -eq 0 ]]; then
+            echo "Restore process for '$DB_NAME' completed successfully inside docker from '$BACKUP_DIR/$DB_NAME-$BACKUP_NAME'."
+        else
+            echo "Failed to restore backup file for '$DB_NAME'. Error: $RESTORE_OUTPUT"
         fi
     done
-
 ###### Delete a specific Backup file Inside Docker ######
 elif [ "$ACTION_TYPE" == "delete" ]; then
     # Perform delete specific backup operation
