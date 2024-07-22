@@ -173,7 +173,7 @@ elif [ "$ACTION_TYPE" == "restore" ]; then
     # Get the Node.js version from the backup directory
     export NVM_DIR="$HOME/.nvm"
     [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh" # This loads nvm
-    NODE_VERSION=$(docker exec -it $BDS_DOCKER_CONTAINER_ID cat $BACKUP_DIR/$BACKUP_NAME-node_version_backup.txt)
+    NODE_VERSION=$(docker exec $BDS_DOCKER_CONTAINER_ID cat $BACKUP_DIR/$BACKUP_NAME-node_version_backup.txt)
     nvm use $NODE_VERSION
 
     for DB_NAME in "${DB_NAME_ARRAY[@]}"; do
@@ -201,15 +201,24 @@ elif [ "$ACTION_TYPE" == "restore" ]; then
         echo "Dropping all schemas and objects in the database '$DB_NAME'..."
         DROP_SCHEMAS_OUTPUT=$(docker exec -t $BDS_DOCKER_CONTAINER_ID bash -c "
             psql -U $BDS_DB_USER -d $DB_NAME -t <<EOF
-DO \$\$
-DECLARE
-    r RECORD;
-BEGIN
-    FOR r IN (SELECT nspname FROM pg_namespace WHERE nspname NOT IN ('pg_catalog', 'information_schema')) LOOP
-        EXECUTE 'DROP SCHEMA IF EXISTS ' || quote_ident(r.nspname) || ' CASCADE';
-    END LOOP;
-END \$\$;
-EOF" 2>&1)
+    CREATE OR REPLACE FUNCTION drop_all()
+    RETURNS VOID AS
+    \$\$
+    DECLARE
+        rec RECORD;
+    BEGIN
+        -- Get all the schemas
+        FOR rec IN
+            SELECT nspname FROM pg_catalog.pg_namespace WHERE (nspname NOT LIKE 'pg_%') AND (nspname != 'information_schema')
+        LOOP
+            EXECUTE 'DROP SCHEMA ' || quote_ident(rec.nspname) || ' CASCADE';
+        END LOOP;
+        RETURN;
+    END;
+    \$\$ LANGUAGE plpgsql;
+
+    SELECT drop_all();
+    EOF" 2>&1)
 
         if [[ $? -eq 0 ]]; then
             echo "All schemas and objects dropped successfully for '$DB_NAME'."
