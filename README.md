@@ -10,35 +10,6 @@ When switching between various Git branches for code review or QA, changes in th
 
 This script automates the process of backing up the database before switching branches and restoring it after switching. It uses Git hooks (pre-checkout and post-checkout) to create and load database backups based on the branch name.
 
-## Features
-
-- [x] Backup database based on current branch name
-- [x] Restore database from backup based on current branch name
-- [x] List all available backups
-- [x] Check the version of the branch db switcher
-- [x] Delete specific backups
-- [x] Delete all backups
-- [x] Support for manual backup and restore operations
-- [x] Support dockerized postgres database 
-- [x] Support config file per project (reading config from `.env`)
-- [x] Uninstall command
-- [x] Add the script to global commands ( to be able to call it in every project without copy/pasting it )
-- [x] Safe restore operation (before each restore operation, it will generate a backup from the current state of the DB with `.safemode` extension)
-- [x] Support local backups ( one usecase is to give it to your colleague for tests/QA/Debugging etc. )
-- [ ] Support for alternative config file name if it's not possible to use `.env`
-- [ ] Support simple postgres database
-- [ ] Install it on `pre-post checkout` hook for current branch
-- [ ] Install/Uninstall the script via brew
-- [ ] Support config file per project through `init` command (operation based on config file)
-      - `init` command asks for multiple questions suchs `DB_NAME, DB_USER, etc.`
-- [ ] Support global config file in case of missing per project config file
-- [ ] Support save location via config file (choose between inside local docker or inside host machine)
-- [ ] Support verbose mode
-- [ ] Support `mysql`
-- [ ] Support colorize output
-- [ ] VSCode Extension via commands
-- [ ] VSCode Extension via ui to back up various things
-
 ## Installation
 
 You can simply download `bds.sh` and use it on your local machine or follow these instructions:
@@ -76,6 +47,7 @@ In order to use it inside your project, you need to create a `.env` file inside 
 # BDS_DB_USER="your database's username"
 # BDS_DB_PASSWORD="your database's password which usually on local is empty"
 # BDS_SAFE_RESTORE_MODE="true or false" # By default if you dont provide anything, it is true, so before any restore command, it will take safemode backup. If you want to turnoff this feature, just set it's value to false. 
+# BDS_FILES_TO_BACKUP="comma separated list of files to include in the backup"
 
 # For example:
 BDS_DOCKER_CONTAINER_ID=123456789
@@ -83,6 +55,7 @@ BDS_DB_NAMES=my_db_name,other_db_name
 BDS_DB_USER=admin
 BDS_DB_PASSWORD=
 BDS_SAFE_RESTORE_MODE=true
+BDS_FILES_TO_BACKUP=path/to/file.yaml,another_file.txt
 ```
 
 **Note**: How to get the docker container id?

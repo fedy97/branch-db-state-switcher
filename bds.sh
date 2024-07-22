@@ -40,6 +40,7 @@ if [ ! -f "./.env" ]; then
     echo "BDS_DB_NAMES='comma separated list of your database names'"
     echo "BDS_DB_USER='your database's username'"
     echo "BDS_DB_PASSWORD='your database's password'"
+    echo "BDS_FILES_TO_BACKUP='comma separated list of files to include in the backup'"
     echo "Don't forget to add '.env' to your .gitignore file."
     echo "Exiting from 'Branch Database State Switcher v$VERSION...'"
     exit
@@ -51,11 +52,14 @@ BDS_DB_NAMES=$(grep BDS_DB_NAMES ./.env | cut -d '=' -f2)
 BDS_DB_USER=$(grep BDS_DB_USER ./.env | cut -d '=' -f2)
 BDS_DB_PASSWORD=$(grep BDS_DB_PASSWORD ./.env | cut -d '=' -f2)
 BDS_SAFE_RESTORE_MODE=$(grep BDS_SAFE_RESTORE_MODE ./.env | cut -d '=' -f2)
+BDS_FILES_TO_BACKUP=$(grep BDS_FILES_TO_BACKUP ./.env | cut -d '=' -f2)
 # Set default value for BDS_SAFE_RESTORE_MODE=true if not provided
 if [ -z "$BDS_SAFE_RESTORE_MODE" ]; then BDS_SAFE_RESTORE_MODE="true"; fi;
 
 # Convert BDS_DB_NAMES to an array
 IFS=',' read -r -a DB_NAME_ARRAY <<< "$BDS_DB_NAMES"
+# Convert BDS_FILES_TO_BACKUP to an array
+IFS=',' read -r -a FILES_TO_BACKUP_ARRAY <<< "$BDS_FILES_TO_BACKUP"
 
 echo ""
 echo "--------- Configurations ---------"
@@ -64,6 +68,7 @@ echo "Database names(BDS_DB_NAMES): '${DB_NAME_ARRAY[@]}'"
 echo "Database username(BDS_DB_USER): '$BDS_DB_USER'"
 echo "Database password(BDS_DB_PASSWORD): '$BDS_DB_PASSWORD'"
 echo "Safe restore mode(BDS_SAFE_RESTORE_MODE): '$BDS_SAFE_RESTORE_MODE'"
+echo "List of files to backup(BDS_FILES_TO_BACKUP): '$BDS_FILES_TO_BACKUP'"
 echo "------------------------"
 echo ""
 
@@ -168,13 +173,35 @@ if [ "$ACTION_TYPE" == "backup" ]; then
     docker cp node_version_backup.txt $BDS_DOCKER_CONTAINER_ID:$BACKUP_DIR/$BACKUP_NAME-node_version_backup.txt
     echo "Node version '$NODE_VERSION' saved successfully."
     rm node_version_backup.txt
+
+    # Loop through ARRAY_TEST and copy each file to Docker container
+    for FILE_PATH in "${FILES_TO_BACKUP_ARRAY[@]}"; do
+        if [ -f "$FILE_PATH" ]; then
+            FILE_NAME=$(basename "$FILE_PATH")
+            docker cp "$FILE_PATH" $BDS_DOCKER_CONTAINER_ID:$BACKUP_DIR/$BACKUP_NAME-$FILE_NAME
+            echo "$FILE_NAME saved successfully."
+        else
+            echo "File '$FILE_PATH' not found."
+        fi
+    done
 ###### Restore DB From Backup files Inside Docker ######
 elif [ "$ACTION_TYPE" == "restore" ]; then
-    # Get the Node.js version from the backup directory
+    # Restore node version
     export NVM_DIR="$HOME/.nvm"
     [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh" # This loads nvm
     NODE_VERSION=$(docker exec $BDS_DOCKER_CONTAINER_ID cat $BACKUP_DIR/$BACKUP_NAME-node_version_backup.txt)
     nvm use $NODE_VERSION
+
+    # Loop through ARRAY_TEST and restore each file from Docker container
+    for FILE_PATH in "${FILES_TO_BACKUP_ARRAY[@]}"; do
+        FILE_NAME=$(basename "$FILE_PATH")
+        docker cp $BDS_DOCKER_CONTAINER_ID:$BACKUP_DIR/$BACKUP_NAME-$FILE_NAME $FILE_PATH
+        if [ $? -eq 0 ]; then
+            echo "$FILE_NAME restored successfully."
+        else
+            echo "Failed to restore '$FILE_NAME'."
+        fi
+    done
 
     for DB_NAME in "${DB_NAME_ARRAY[@]}"; do
         # Check if the backup file exists
