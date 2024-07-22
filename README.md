@@ -49,16 +49,16 @@ You can simply download `bds.sh` and use it on your local machine or follow thes
 If you use curl and bash:
 
 ```sh
-curl -o ~/bds https://raw.githubusercontent.com/SeyyedKhandon/branch-db-state-switcher/main/bds.sh && chmod +x ~/bds && sudo mkdir -p /usr/local/bin/branch-db-state-switcher && sudo mv ~/bds /usr/local/bin/branch-db-state-switcher/bds && if ! grep -q '/usr/local/bin/branch-db-state-switcher' ~/.bashrc; then echo 'export PATH="/usr/local/bin/branch-db-state-switcher:$PATH"' >> ~/.bashrc; fi && source ~/.bashrc && RESULT=$(bds -v) && echo "\r\n $RESULT has been installed. \r\n" && echo "Read available commands https://github.com/SeyyedKhandon/branch-db-state-switcher" && echo "\r\n****Please give a star on github to support us.****\r\n"
+curl -o ~/bds https://raw.githubusercontent.com/fedy97/branch-db-state-switcher/main/bds.sh && chmod +x ~/bds && sudo mkdir -p /usr/local/bin/branch-db-state-switcher && sudo mv ~/bds /usr/local/bin/branch-db-state-switcher/bds && if ! grep -q '/usr/local/bin/branch-db-state-switcher' ~/.bashrc; then echo 'export PATH="/usr/local/bin/branch-db-state-switcher:$PATH"' >> ~/.bashrc; fi && source ~/.bashrc && RESULT=$(bds -v) && echo "\r\n $RESULT has been installed. \r\n" && echo "Read available commands https://github.com/SeyyedKhandon/branch-db-state-switcher" && echo "\r\n****Please give a star on github to support us.****\r\n"
 ```
 
 If you use curl and zsh:
 
 ```sh
-curl -o ~/bds https://raw.githubusercontent.com/SeyyedKhandon/branch-db-state-switcher/main/bds.sh && chmod +x ~/bds && sudo mkdir -p /usr/local/bin/branch-db-state-switcher && sudo mv ~/bds /usr/local/bin/branch-db-state-switcher/bds && if ! grep -q '/usr/local/bin/branch-db-state-switcher' ~/.zshrc; then echo 'export PATH="/usr/local/bin/branch-db-state-switcher:$PATH"' >> ~/.zshrc; fi && source ~/.zshrc && RESULT=$(bds -v) && echo "\r\n $RESULT has been installed. \r\n" && echo "Read available commands https://github.com/SeyyedKhandon/branch-db-state-switcher" && echo "\r\n****Please give a star on github to support us.****\r\n"
+curl -o ~/bds https://raw.githubusercontent.com/fedy97/branch-db-state-switcher/main/bds.sh && chmod +x ~/bds && sudo mkdir -p /usr/local/bin/branch-db-state-switcher && sudo mv ~/bds /usr/local/bin/branch-db-state-switcher/bds && if ! grep -q '/usr/local/bin/branch-db-state-switcher' ~/.zshrc; then echo 'export PATH="/usr/local/bin/branch-db-state-switcher:$PATH"' >> ~/.zshrc; fi && source ~/.zshrc && RESULT=$(bds -v) && echo "\r\n $RESULT has been installed. \r\n" && echo "Read available commands https://github.com/SeyyedKhandon/branch-db-state-switcher" && echo "\r\n****Please give a star on github to support us.****\r\n"
 ```
 
-Check for installtion, open you terminal and run `bds -v` or `bds --version`: 
+Check for installation, open you terminal and run `bds -v` or `bds --version`: 
 ```sh
 bds -v
 # Branch database state switcher v1.0
@@ -72,23 +72,22 @@ In order to use it inside your project, you need to create a `.env` file inside 
 
 ```bash
 # DOCKER_IMAGE_NAME="your docker image name that runs the database" 
-# BDS_DB_NAME="your database's name"
+# BDS_DB_NAMES="comma separated list of your database names"
 # BDS_DB_USER="your database's username"
 # BDS_DB_PASSWORD="your database's password which usually on local is empty"
 # BDS_SAFE_RESTORE_MODE="true or false" # By default if you dont provide anything, it is true, so before any restore command, it will take safemode backup. If you want to turnoff this feature, just set it's value to false. 
 
 # For example:
-BDS_DOCKER_IMAGE_NAME=myproject-db
-BDS_DB_NAME=my_db_name
+BDS_DOCKER_CONTAINER_ID=123456789
+BDS_DB_NAMES=my_db_name,other_db_name
 BDS_DB_USER=admin
 BDS_DB_PASSWORD=
 BDS_SAFE_RESTORE_MODE=true
 ```
 
-**Note**: How to get the docker name? There are various ways to do it:
+**Note**: How to get the docker container id?
 
-- Method1: Get it from your `docker-compose.yml` file inside your project
-- Method2: Run `docker ps` in your terminal, which shows you a list of all running docker instances, for example `myproject-db`:
+Run `docker ps` in your terminal, which shows you a list of all running docker instances, for example `myproject-db`:
 
 ```bash
 ~ docker ps
