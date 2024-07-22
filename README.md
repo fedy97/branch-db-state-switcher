@@ -71,7 +71,7 @@ In order to use it inside your project, you need to create a `.env` file inside 
 3. Add the following variables inside the `.env` of your project:
 
 ```bash
-# DOCKER_IMAGE_NAME="your docker image name that runs the database" 
+# BSD_DOCKER_CONTAINER_ID="your docker container id that runs the database" 
 # BDS_DB_NAMES="comma separated list of your database names"
 # BDS_DB_USER="your database's username"
 # BDS_DB_PASSWORD="your database's password which usually on local is empty"
