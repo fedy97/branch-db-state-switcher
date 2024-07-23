@@ -111,14 +111,15 @@ fi
 # ---------------------------------------------------------------------- #
 # List all backups inside the container
 # ---------------------------------------------------------------------- #
-if [ "$ACTION_TYPE" == "--list" ] || [ "$ACTION_TYPE" == "-l" ]; then
+if [ "$ACTION_TYPE" = "--list" ] || [ "$ACTION_TYPE" = "-l" ]; then
     # Perform list all backups operation
     echo "$BACKUP_DIR:"
-    if output=$(docker exec -t $BDS_DOCKER_CONTAINER_ID bash -c "find $BACKUP_DIR -maxdepth 1 -type d ! -path $BACKUP_DIR | xargs -n 1 basename" 2>&1); then
+    if output=$(docker exec -t "$BDS_DOCKER_CONTAINER_ID" sh -c "ls -d \"$BACKUP_DIR\"/*/ | xargs -n 1 basename"); then
         echo "$output"
     else
         echo "Failed to list directories inside the container. Error: $output"
     fi
+
     exit
 fi
 
