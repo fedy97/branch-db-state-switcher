@@ -162,6 +162,10 @@ if [ "$ACTION_TYPE" == "backup" ]; then
     [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh" # This loads nvm
     NODE_VERSION=$(nvm current)
     echo $NODE_VERSION > node_version_backup.txt
+    docker cp node_version_backup.txt $BDS_DOCKER_CONTAINER_ID:$BACKUP_DIR/$BACKUP_NAME-node_version_backup.txt
+    echo "Node version '$NODE_VERSION' saved successfully."
+    rm node_version_backup.txt
+
     # Perform backup operation
     for DB_NAME in "${DB_NAME_ARRAY[@]}"; do
         if docker exec -t $BDS_DOCKER_CONTAINER_ID bash -c "pg_dump -Fc -U $BDS_DB_USER -d $DB_NAME > $BACKUP_DIR/$DB_NAME-$BACKUP_NAME"; then
@@ -170,15 +174,13 @@ if [ "$ACTION_TYPE" == "backup" ]; then
             echo "Failed to create backup file for '$DB_NAME' inside docker."
         fi
     done
-    docker cp node_version_backup.txt $BDS_DOCKER_CONTAINER_ID:$BACKUP_DIR/$BACKUP_NAME-node_version_backup.txt
-    echo "Node version '$NODE_VERSION' saved successfully."
-    rm node_version_backup.txt
 
-    # Loop through ARRAY_TEST and copy each file to Docker container
+    # Loop through files and copy each file to Docker container
     for FILE_PATH in "${FILES_TO_BACKUP_ARRAY[@]}"; do
         if [ -f "$FILE_PATH" ]; then
             FILE_NAME=$(basename "$FILE_PATH")
-            docker cp "$FILE_PATH" $BDS_DOCKER_CONTAINER_ID:$BACKUP_DIR/$BACKUP_NAME-$FILE_NAME
+            docker exec $BDS_DOCKER_CONTAINER_ID mkdir -p $BACKUP_DIR/$BACKUP_NAME
+            docker cp "$FILE_PATH" $BDS_DOCKER_CONTAINER_ID:$BACKUP_DIR/$BACKUP_NAME/$FILE_NAME
             echo "$FILE_NAME saved successfully."
         else
             echo "File '$FILE_PATH' not found."
@@ -192,17 +194,27 @@ elif [ "$ACTION_TYPE" == "restore" ]; then
     NODE_VERSION=$(docker exec $BDS_DOCKER_CONTAINER_ID cat $BACKUP_DIR/$BACKUP_NAME-node_version_backup.txt)
     nvm use $NODE_VERSION
 
-    # Loop through ARRAY_TEST and restore each file from Docker container
-    for FILE_PATH in "${FILES_TO_BACKUP_ARRAY[@]}"; do
-        FILE_NAME=$(basename "$FILE_PATH")
-        docker cp $BDS_DOCKER_CONTAINER_ID:$BACKUP_DIR/$BACKUP_NAME-$FILE_NAME $FILE_PATH
-        if [ $? -eq 0 ]; then
-            echo "$FILE_NAME restored successfully."
+    # Loop through files and restore each file from Docker container
+    FILES=$(docker exec -t $BDS_DOCKER_CONTAINER_ID bash -c "ls $BACKUP_DIR/$BACKUP_NAME")
+    IFS=$'\n' read -rd '' -a FILE_ARRAY <<<"$FILES"
+    for FILE in "${FILE_ARRAY[@]}"; do
+        CLEAN_FILE=$(echo "$FILE" | tr -d '\r')
+        FILE_NAME=$(basename "$CLEAN_FILE")
+        echo "$FILE_NAME"
+        printf "Do you want to restore %s? (y/n): " "$FILE_NAME"
+        read -r RESPONSE
+        if [ "$RESPONSE" == "y" ]; then
+            # Determine the local path based on the file name
+            # Restore the file from the Docker container to the local machine
+            docker cp $BDS_DOCKER_CONTAINER_ID:$BACKUP_DIR/$BACKUP_NAME/$FILE_NAME $FILE_NAME
+            if [ $? -eq 0 ]; then
+                echo "$FILE_NAME restored successfully."
+            fi
         else
-            echo "Failed to restore '$FILE_NAME'."
+            echo "Skipping restoration of $FILE_NAME."
         fi
     done
-
+    exit
     for DB_NAME in "${DB_NAME_ARRAY[@]}"; do
         # Check if the backup file exists
         if ! docker exec $BDS_DOCKER_CONTAINER_ID [ -f $BACKUP_DIR/$DB_NAME-$BACKUP_NAME ]; then
@@ -231,7 +243,7 @@ elif [ "$ACTION_TYPE" == "restore" ]; then
         # Create the database
         docker exec -t $BDS_DOCKER_CONTAINER_ID bash -c "psql -U $BDS_DB_USER -c 'CREATE DATABASE \"$DB_NAME\";'"
 
-        # Perform the restore operation
+        # Perform the DB restore operation
         echo "Restoring database '$DB_NAME' from backup..."
         RESTORE_OUTPUT=$(docker exec -t $BDS_DOCKER_CONTAINER_ID bash -c "
             pg_restore --clean --if-exists --no-owner --no-privileges -U $BDS_DB_USER -d $DB_NAME $BACKUP_DIR/$DB_NAME-$BACKUP_NAME" 2>&1)
