@@ -114,10 +114,10 @@ fi
 if [ "$ACTION_TYPE" == "--list" ] || [ "$ACTION_TYPE" == "-l" ]; then
     # Perform list all backups operation
     echo "$BACKUP_DIR:"
-    if output=$(docker exec -t $BDS_DOCKER_CONTAINER_ID bash -c "ls -l $BACKUP_DIR" 2>&1); then
+    if output=$(docker exec -t $BDS_DOCKER_CONTAINER_ID bash -c "find $BACKUP_DIR -type d -maxdepth 1" 2>&1); then
         echo "$output"
     else
-        echo "Failed to list all backups inside the container. Error: $output"
+        echo "Failed to list directories inside the container. Error: $output"
     fi
     exit
 fi
@@ -175,11 +175,11 @@ if [ "$ACTION_TYPE" == "backup" ]; then
         fi
     done
 
+    docker exec $BDS_DOCKER_CONTAINER_ID mkdir -p $BACKUP_DIR/$BACKUP_NAME
     # Loop through files and copy each file to Docker container
     for FILE_PATH in "${FILES_TO_BACKUP_ARRAY[@]}"; do
         if [ -f "$FILE_PATH" ]; then
             FILE_NAME=$(basename "$FILE_PATH")
-            docker exec $BDS_DOCKER_CONTAINER_ID mkdir -p $BACKUP_DIR/$BACKUP_NAME
             docker cp "$FILE_PATH" $BDS_DOCKER_CONTAINER_ID:$BACKUP_DIR/$BACKUP_NAME/$FILE_NAME
             echo "$FILE_NAME saved successfully."
         else
