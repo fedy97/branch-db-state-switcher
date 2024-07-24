@@ -215,7 +215,7 @@ elif [ "$ACTION_TYPE" == "restore" ]; then
             echo "Skipping restoration of $FILE_NAME."
         fi
     done
-    exit
+
     for DB_NAME in "${DB_NAME_ARRAY[@]}"; do
         # Check if the backup file exists
         if ! docker exec $BDS_DOCKER_CONTAINER_ID [ -f $BACKUP_DIR/$DB_NAME-$BACKUP_NAME ]; then
