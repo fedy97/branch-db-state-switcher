@@ -265,6 +265,11 @@ elif [ "$ACTION_TYPE" == "delete" ]; then
             echo "Failed to delete backup '$BACKUP_DIR/$DB_NAME-$BACKUP_NAME' inside the container."
         fi
     done
+    if docker exec -t $BDS_DOCKER_CONTAINER_ID bash -c "rm -R $BACKUP_DIR/$BACKUP_NAME"; then
+        echo "Deleted all stored files."
+    else
+        echo "Failed to delete all stored files."
+    fi
 ###### Delete all backup files Inside Docker ######
 elif [ "$ACTION_TYPE" == "delete-all" ]; then
     # Perform delete all backups operation
